@@ -2,7 +2,7 @@ import { addHours, addDays, setHours, setMinutes, startOfDay } from "date-fns";
 import type { Booking, CurrentUser, UserRole } from "./types";
 import { MACHINES } from "@/data/machines";
 
-const STORAGE_KEY = "lab-booker-pro-v1";
+const STORAGE_KEY = "lab-booker-pro-v2";
 
 const DEMO_USERS: Record<UserRole, CurrentUser> = {
   student: {
@@ -61,7 +61,7 @@ function seedBookings(): Booking[] {
       userId: "u-student",
       userName: "Jordan Lee",
       userRole: "student",
-      purpose: "CS472 assignment — ResNet training",
+      purpose: "CS472 assignment \u2014 ResNet training",
       start: t(1, 10),
       end: t(1, 14),
       status: "approved",
@@ -100,31 +100,55 @@ interface StoreState {
   currentRole: UserRole;
 }
 
-function load(): StoreState {
-  if (typeof window === "undefined") {
-    return { bookings: seedBookings(), currentRole: "student" };
-  }
+/** Stable server snapshot \u2014 never reads localStorage (avoids hydration mismatch). */
+const SERVER_STATE: StoreState = {
+  bookings: seedBookings(),
+  currentRole: "student",
+};
+
+function loadClient(): StoreState {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as StoreState;
       return {
-        bookings: parsed.bookings ?? seedBookings(),
+        bookings: Array.isArray(parsed.bookings)
+          ? autoComplete(parsed.bookings)
+          : seedBookings(),
         currentRole: parsed.currentRole ?? "student",
       };
     }
   } catch {
-    // ignore
+    // corrupt storage \u2014 fall through to seed
   }
   return { bookings: seedBookings(), currentRole: "student" };
 }
 
-function save(state: StoreState) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+/** Mark approved bookings past their end time as completed. */
+function autoComplete(bookings: Booking[]): Booking[] {
+  const now = Date.now();
+  return bookings.map((b) => {
+    if (
+      (b.status === "approved" || b.status === "pending") &&
+      new Date(b.end).getTime() < now
+    ) {
+      return { ...b, status: "completed" as const };
+    }
+    return b;
+  });
 }
 
-let state = load();
+function save(state: StoreState) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // quota exceeded \u2014 ignore
+  }
+}
+
+let state: StoreState =
+  typeof window === "undefined" ? SERVER_STATE : loadClient();
 const listeners = new Set<() => void>();
 
 function notify() {
@@ -134,11 +158,17 @@ function notify() {
 
 export function subscribe(listener: () => void) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function getSnapshot(): StoreState {
   return state;
+}
+
+export function getServerSnapshot(): StoreState {
+  return SERVER_STATE;
 }
 
 export function getCurrentUser(): CurrentUser {
@@ -174,7 +204,12 @@ export function isSlotAvailable(
   return !state.bookings.some((b) => {
     if (b.machineId !== machineId) return false;
     if (b.id === excludeId) return false;
-    if (b.status === "rejected" || b.status === "cancelled") return false;
+    if (
+      b.status === "rejected" ||
+      b.status === "cancelled" ||
+      b.status === "completed"
+    )
+      return false;
     const bs = new Date(b.start).getTime();
     const be = new Date(b.end).getTime();
     return s < be && e > bs;
@@ -188,20 +223,25 @@ export function createBooking(input: {
   end: string;
 }): { ok: true; booking: Booking } | { ok: false; error: string } {
   const user = getCurrentUser();
+  const purpose = input.purpose.trim();
+
+  if (purpose.length < 8) {
+    return {
+      ok: false,
+      error: "Please describe your work in at least 8 characters.",
+    };
+  }
   if (!isSlotAvailable(input.machineId, input.start, input.end)) {
     return { ok: false, error: "This slot is no longer available." };
   }
-  if (!input.purpose.trim()) {
-    return { ok: false, error: "Please describe the purpose of your booking." };
-  }
 
   const booking: Booking = {
-    id: `b-${Date.now()}`,
+    id: `b-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     machineId: input.machineId,
     userId: user.id,
     userName: user.name,
     userRole: user.role,
-    purpose: input.purpose.trim(),
+    purpose,
     start: input.start,
     end: input.end,
     status: user.role === "admin" ? "approved" : "pending",
@@ -236,7 +276,13 @@ export function cancelBooking(id: string): boolean {
   return updateBookingStatus(id, "cancelled");
 }
 
+export function resetDemoData() {
+  state = { bookings: seedBookings(), currentRole: state.currentRole };
+  notify();
+}
+
 export function getUtilization() {
+  const now = new Date();
   const active = state.bookings.filter(
     (b) => b.status === "approved" || b.status === "pending",
   );
@@ -247,7 +293,6 @@ export function getUtilization() {
     pending: state.bookings.filter((b) => b.status === "pending").length,
     approvedToday: active.filter((b) => {
       const d = new Date(b.start);
-      const now = new Date();
       return (
         d.getDate() === now.getDate() &&
         d.getMonth() === now.getMonth() &&
@@ -257,7 +302,7 @@ export function getUtilization() {
   };
 }
 
-/** Generate standard lab slots for a given day (09:00–21:00, 2h blocks) */
+/** Standard lab slots: 09:00\u201321:00 in 2-hour blocks. */
 export function getDaySlots(day: Date) {
   const base = startOfDay(day);
   const slots = [];
@@ -267,7 +312,7 @@ export function getDaySlots(day: Date) {
     slots.push({
       start,
       end,
-      label: `${String(h).padStart(2, "0")}:00 – ${String(h + 2).padStart(2, "0")}:00`,
+      label: `${String(h).padStart(2, "0")}:00 \u2013 ${String(h + 2).padStart(2, "0")}:00`,
     });
   }
   return slots;

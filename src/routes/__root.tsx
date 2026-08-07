@@ -48,6 +48,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
+            type="button"
             onClick={() => {
               router.invalidate();
               reset();
@@ -68,12 +69,23 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+const themeInitScript = `
+(function(){
+  try {
+    var t = localStorage.getItem('lab-booker-theme');
+    var dark = t === 'dark' || (!t && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (dark) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  } catch (e) {}
+})();
+`;
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lab Booker Pro — AI/ML Lab Slot Booking" },
+      { title: "Lab Booker Pro \u2014 AI/ML Lab Slot Booking" },
       {
         name: "description",
         content:
@@ -85,10 +97,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content: "Elite AI/ML lab slot booking system",
       },
       { property: "og:type", content: "website" },
+      { name: "theme-color", content: "#4f46e5" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+    ],
+    scripts: [
+      {
+        children: themeInitScript,
+      },
     ],
   }),
   shellComponent: RootShell,
@@ -99,11 +117,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="min-h-screen antialiased">
         {children}
         <Scripts />
       </body>
@@ -119,7 +137,8 @@ function RootComponent() {
       <AppShell>
         <Outlet />
       </AppShell>
-      <Toaster position="top-right" richColors closeButton />
+      {/* Neutral toasts only \u2014 no richColors / rainbow styling */}
+      <Toaster position="top-right" closeButton />
     </QueryClientProvider>
   );
 }
