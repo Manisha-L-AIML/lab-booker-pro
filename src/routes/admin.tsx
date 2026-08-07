@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
@@ -22,9 +22,6 @@ import {
 import { formatSlot, formatRelative } from "@/lib/format";
 
 export const Route = createFileRoute("/admin")({
-  beforeLoad: () => {
-    // Soft guard: page still renders a message if not admin
-  },
   component: AdminPage,
 });
 
