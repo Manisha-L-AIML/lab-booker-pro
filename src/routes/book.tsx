@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { addDays, format, isBefore, startOfDay } from "date-fns";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CalendarPlus, Check } from "lucide-react";
+import { CalendarPlus, Check, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,8 +14,11 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MachineCard } from "@/components/machine-card";
+import { OccupancyBar } from "@/components/occupancy-bar";
+import { PageHeader } from "@/components/page-header";
 import { MACHINES } from "@/data/machines";
-import { createBooking, getDaySlots, isSlotAvailable } from "@/lib/store";
+import { createBooking, isSlotAvailable } from "@/lib/store";
+import { getFlexibleSlots } from "@/lib/occupancy";
 import { useLabStore } from "@/hooks/use-lab-store";
 import { cn } from "@/lib/utils";
 
@@ -24,11 +27,13 @@ export const Route = createFileRoute("/book")({
 });
 
 function BookPage() {
-  useLabStore(); // re-render when bookings change (availability)
+  const { bookings } = useLabStore();
   const navigate = useNavigate();
   const onlineMachines = MACHINES.filter((m) => m.status === "online");
+
   const [machineId, setMachineId] = useState<string | null>(null);
   const [dayOffset, setDayOffset] = useState(0);
+  const [duration, setDuration] = useState<2 | 4>(2);
   const [slotIdx, setSlotIdx] = useState<number | null>(null);
   const [purpose, setPurpose] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -37,7 +42,11 @@ function BookPage() {
     () => addDays(startOfDay(new Date()), dayOffset),
     [dayOffset],
   );
-  const slots = useMemo(() => getDaySlots(day), [day]);
+
+  const slots = useMemo(
+    () => getFlexibleSlots(day, duration),
+    [day, duration],
+  );
 
   const availableSlots = useMemo(() => {
     if (!machineId) return slots.map((s) => ({ ...s, available: false }));
@@ -74,26 +83,21 @@ function BookPage() {
     toast.success(
       result.booking.status === "approved"
         ? "Booking confirmed"
-        : "Request submitted \u2014 awaiting approval",
+        : "Request submitted — awaiting approval",
     );
     void navigate({ to: "/bookings" });
   }
 
   return (
     <div className="space-y-8 pb-24 md:pb-0">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          Book a lab slot
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          Choose a machine, pick an open 2-hour window, and describe your work.
-        </p>
-      </div>
+      <PageHeader
+        title="Book a lab slot"
+        description="Pick a machine, duration, and open window. Conflicts are blocked automatically."
+      />
 
+      {/* Step 1 */}
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          1 \u00b7 Select machine
-        </h2>
+        <StepLabel n={1}>Select machine</StepLabel>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {onlineMachines.map((m) => (
             <MachineCard
@@ -108,33 +112,74 @@ function BookPage() {
             />
           ))}
         </div>
+
+        {machineId && (
+          <Card className="border-dashed">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium">
+                Today’s occupancy ·{" "}
+                {MACHINES.find((m) => m.id === machineId)?.name}
+              </CardTitle>
+              <CardDescription className="text-xs">
+                Blue = approved · Amber = pending
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <OccupancyBar
+                machineId={machineId}
+                day={day}
+                bookings={bookings}
+              />
+            </CardContent>
+          </Card>
+        )}
       </section>
 
+      {/* Step 2 */}
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          2 \u00b7 Choose day & time
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
-            const d = addDays(startOfDay(new Date()), offset);
-            return (
+        <StepLabel n={2}>Day, duration & time</StepLabel>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap gap-2">
+            {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
+              const d = addDays(startOfDay(new Date()), offset);
+              return (
+                <Button
+                  key={offset}
+                  variant={dayOffset === offset ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    setDayOffset(offset);
+                    setSlotIdx(null);
+                  }}
+                >
+                  {offset === 0
+                    ? "Today"
+                    : offset === 1
+                      ? "Tomorrow"
+                      : format(d, "EEE d")}
+                </Button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-1.5 rounded-lg border p-1">
+            <Clock className="ml-1.5 size-3.5 text-muted-foreground" />
+            {([2, 4] as const).map((h) => (
               <Button
-                key={offset}
-                variant={dayOffset === offset ? "default" : "outline"}
+                key={h}
                 size="sm"
+                variant={duration === h ? "secondary" : "ghost"}
+                className="h-7 px-2.5"
                 onClick={() => {
-                  setDayOffset(offset);
+                  setDuration(h);
                   setSlotIdx(null);
                 }}
               >
-                {offset === 0
-                  ? "Today"
-                  : offset === 1
-                    ? "Tomorrow"
-                    : format(d, "EEE d")}
+                {h}h
               </Button>
-            );
-          })}
+            ))}
+          </div>
         </div>
 
         {!machineId ? (
@@ -166,16 +211,14 @@ function BookPage() {
         )}
       </section>
 
+      {/* Step 3 */}
       <section className="space-y-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          3 \u00b7 Purpose
-        </h2>
+        <StepLabel n={3}>Purpose</StepLabel>
         <Card className="max-w-xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">What will you run?</CardTitle>
             <CardDescription>
-              Help the lab in-charge prioritise and plan capacity (min 8
-              characters).
+              Helps prioritisation · minimum 8 characters
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -188,6 +231,9 @@ function BookPage() {
                 onChange={(e) => setPurpose(e.target.value)}
                 rows={3}
               />
+              <p className="text-xs text-muted-foreground">
+                {purpose.trim().length}/8 minimum
+              </p>
             </div>
             <Button
               size="lg"
@@ -201,7 +247,7 @@ function BookPage() {
               onClick={handleSubmit}
             >
               {submitting ? (
-                "Submitting\u2026"
+                "Submitting…"
               ) : (
                 <>
                   <CalendarPlus className="size-4" />
@@ -214,21 +260,30 @@ function BookPage() {
       </section>
 
       {machineId && slotIdx !== null && (
-        <div className="fixed bottom-0 inset-x-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:static md:border-0 md:bg-transparent md:backdrop-blur-none">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-            <div className="flex items-center gap-2 text-sm">
-              <Check className="size-4 shrink-0 text-emerald-500" />
-              <span>
-                <strong>
-                  {MACHINES.find((m) => m.id === machineId)?.name}
-                </strong>
-                {" \u00b7 "}
-                {availableSlots[slotIdx]?.label} on {format(day, "MMM d")}
-              </span>
-            </div>
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:static md:border-0 md:bg-transparent md:backdrop-blur-none">
+          <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-3 sm:px-6">
+            <Check className="size-4 shrink-0 text-emerald-500" />
+            <span className="text-sm">
+              <strong>
+                {MACHINES.find((m) => m.id === machineId)?.name}
+              </strong>
+              {" · "}
+              {availableSlots[slotIdx]?.label} on {format(day, "MMM d")} ({duration}h)
+            </span>
           </div>
         </div>
       )}
     </div>
+  );
+}
+
+function StepLabel({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+      <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+        {n}
+      </span>
+      {children}
+    </h2>
   );
 }
