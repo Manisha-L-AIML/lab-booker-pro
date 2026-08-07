@@ -1,26 +1,72 @@
 # Lab Booker Pro
 
-AI/ML Lab Slot Booker
+**Elite AI/ML Lab Slot Booking System**
 
-Students and faculty fight for lab machines and GPU time. Build a booking page for the department AI/ML lab: pick slot, see free machines, no double-booking, lab-in-charge can approve/cancel. Outcome: fair lab access and less coordination on WhatsApp.
+Fair, transparent, zero-WhatsApp coordination for department GPU & compute resources.
 
-This project was built with [Lovable](https://lovable.dev).
+Students and faculty book lab machines and GPU time with live availability, conflict-free scheduling, and lab-in-charge approval workflows.
 
-## Build with Lovable
+## Features
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/f3a4fc6b-a7f4-4a0f-b711-e8bcdc3a6924).
+- **Live availability** — see free machines and open slots instantly
+- **Conflict-free booking** — impossible to double-book a machine
+- **Role-based access** — Student, Faculty, Lab In-Charge
+- **Approval workflow** — lab-in-charge can approve, reject, or cancel
+- **Machine inventory** — GPU models, VRAM, CPU, status at a glance
+- **Dashboard analytics** — utilization, pending requests, your upcoming slots
+- **Dark mode** — full theme support
+- **Local persistence** — bookings survive refresh (demo mode)
 
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+## Tech Stack
 
-## Development
+- **TanStack Start** (React + TypeScript)
+- **TanStack Router** + **React Query**
+- **Tailwind CSS v4** + **shadcn/ui**
+- **date-fns** + **Zod** + **React Hook Form**
+- **Vite** + **Nitro**
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+## Quick Start
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
+```bash
+git clone https://github.com/Manisha-L-AIML/lab-booker-pro.git
+cd lab-booker-pro
+npm install
 npm run dev
 ```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Demo Roles
+
+Use the role switcher in the header:
+
+| Role            | Capabilities                                      |
+| --------------- | ------------------------------------------------- |
+| Student         | Book slots, view own bookings, cancel own requests |
+| Faculty         | Same as student + higher priority context          |
+| Lab In-Charge   | Approve / reject / cancel any booking, full view   |
+
+## Project Structure
+
+```
+src/
+├─ components/     # UI + domain components
+├─ data/           # Mock machines + seed data
+├─ lib/            # Utils, store, types
+├─ routes/         # File-based routes
+└─ styles.css      # Design tokens
+```
+
+## Scripts
+
+| Command         | Description              |
+| --------------- | ------------------------ |
+| `npm run dev`   | Start development server |
+| `npm run build` | Production build         |
+| `npm run preview` | Preview production build |
+| `npm run lint`  | ESLint                   |
+| `npm run format`| Prettier                 |
+
+## License
+
+MIT
