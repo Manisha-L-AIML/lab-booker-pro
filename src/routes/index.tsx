@@ -4,9 +4,9 @@ import {
   CheckCircle2,
   Clock,
   Server,
-  AlertCircle,
+  UserRound,
 } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,40 +17,35 @@ import {
 } from "@/components/ui/card";
 import { BookingStatusBadge } from "@/components/status-badge";
 import { MACHINES } from "@/data/machines";
-import {
-  getBookings,
-  getCurrentUser,
-  getMachine,
-  getSnapshot,
-  getUtilization,
-  subscribe,
-} from "@/lib/store";
+import { getMachine, getUtilization } from "@/lib/store";
+import { useLabStore } from "@/hooks/use-lab-store";
 import { formatSlot, formatRelative } from "@/lib/format";
 
 export const Route = createFileRoute("/")({
   component: Dashboard,
 });
 
-function useStore() {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-}
-
 function Dashboard() {
-  useStore();
-  const user = getCurrentUser();
+  const { bookings, user } = useLabStore();
   const stats = getUtilization();
-  const bookings = getBookings();
-  const myUpcoming = bookings
-    .filter(
-      (b) =>
-        b.userId === user.id &&
-        (b.status === "approved" || b.status === "pending") &&
-        new Date(b.end) > new Date(),
-    )
-    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-    .slice(0, 5);
 
-  const recent = bookings.slice(0, 6);
+  const myUpcoming = useMemo(
+    () =>
+      bookings
+        .filter(
+          (b) =>
+            b.userId === user.id &&
+            (b.status === "approved" || b.status === "pending") &&
+            new Date(b.end) > new Date(),
+        )
+        .sort(
+          (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
+        )
+        .slice(0, 5),
+    [bookings, user.id],
+  );
+
+  const recent = useMemo(() => bookings.slice(0, 6), [bookings]);
 
   return (
     <div className="space-y-8">
@@ -60,7 +55,7 @@ function Dashboard() {
             Welcome back, {user.name.split(" ")[0]}
           </h1>
           <p className="mt-1 text-muted-foreground">
-            AI/ML Lab · Fair access, zero double-booking
+            AI/ML Lab \u00b7 Fair access, zero double-booking
           </p>
         </div>
         <Button asChild size="lg" className="gap-2">
@@ -71,7 +66,6 @@ function Dashboard() {
         </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Online machines"
@@ -95,13 +89,12 @@ function Dashboard() {
         <StatCard
           title="Your role"
           value={user.role === "admin" ? "Lab Admin" : user.role}
-          icon={AlertCircle}
+          icon={UserRound}
           hint={user.email}
         />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-5">
-        {/* Upcoming */}
         <Card className="lg:col-span-3">
           <CardHeader>
             <CardTitle className="text-lg">Your upcoming slots</CardTitle>
@@ -130,13 +123,13 @@ function Dashboard() {
                       className="flex items-center justify-between gap-3 rounded-lg border bg-card p-3"
                     >
                       <div className="min-w-0">
-                        <p className="font-medium truncate">
+                        <p className="truncate font-medium">
                           {machine?.name ?? b.machineId}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatSlot(b.start, b.end)}
                         </p>
-                        <p className="mt-0.5 text-xs text-muted-foreground truncate">
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
                           {b.purpose}
                         </p>
                       </div>
@@ -149,7 +142,6 @@ function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Fleet snapshot */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-lg">Fleet status</CardTitle>
@@ -185,11 +177,12 @@ function Dashboard() {
         </Card>
       </div>
 
-      {/* Recent activity */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Recent activity</CardTitle>
-          <CardDescription>Latest booking requests across the lab</CardDescription>
+          <CardDescription>
+            Latest booking requests across the lab
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -198,9 +191,9 @@ function Dashboard() {
                 <tr className="border-b text-left text-muted-foreground">
                   <th className="pb-3 font-medium">User</th>
                   <th className="pb-3 font-medium">Machine</th>
-                  <th className="pb-3 font-medium hidden sm:table-cell">Slot</th>
+                  <th className="hidden pb-3 font-medium sm:table-cell">Slot</th>
                   <th className="pb-3 font-medium">Status</th>
-                  <th className="pb-3 font-medium hidden md:table-cell">When</th>
+                  <th className="hidden pb-3 font-medium md:table-cell">When</th>
                 </tr>
               </thead>
               <tbody>
@@ -208,20 +201,20 @@ function Dashboard() {
                   <tr key={b.id} className="border-b last:border-0">
                     <td className="py-3">
                       <div className="font-medium">{b.userName}</div>
-                      <div className="text-xs text-muted-foreground capitalize">
+                      <div className="text-xs capitalize text-muted-foreground">
                         {b.userRole}
                       </div>
                     </td>
                     <td className="py-3">
                       {getMachine(b.machineId)?.name ?? b.machineId}
                     </td>
-                    <td className="py-3 hidden sm:table-cell text-muted-foreground">
+                    <td className="hidden py-3 text-muted-foreground sm:table-cell">
                       {formatSlot(b.start, b.end)}
                     </td>
                     <td className="py-3">
                       <BookingStatusBadge status={b.status} />
                     </td>
-                    <td className="py-3 hidden md:table-cell text-muted-foreground">
+                    <td className="hidden py-3 text-muted-foreground md:table-cell">
                       {formatRelative(b.createdAt)}
                     </td>
                   </tr>

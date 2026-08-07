@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useSyncExternalStore } from "react";
+import { useMemo } from "react";
 import { toast } from "sonner";
 import { Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -10,28 +10,28 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { BookingStatusBadge } from "@/components/status-badge";
 import {
-  getBookings,
-  getCurrentUser,
-  getMachine,
-  getSnapshot,
-  subscribe,
-  updateBookingStatus,
-} from "@/lib/store";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { BookingStatusBadge } from "@/components/status-badge";
+import { getMachine, updateBookingStatus } from "@/lib/store";
+import { useLabStore } from "@/hooks/use-lab-store";
 import { formatSlot, formatRelative } from "@/lib/format";
 
 export const Route = createFileRoute("/admin")({
   component: AdminPage,
 });
 
-function useStore() {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-}
-
 function AdminPage() {
-  useStore();
-  const user = getCurrentUser();
+  const { bookings, user } = useLabStore();
 
   if (user.role !== "admin") {
     return (
@@ -45,11 +45,16 @@ function AdminPage() {
     );
   }
 
-  const bookings = getBookings().sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  const sorted = useMemo(
+    () =>
+      [...bookings].sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      ),
+    [bookings],
   );
-  const pending = bookings.filter((b) => b.status === "pending");
-  const others = bookings.filter((b) => b.status !== "pending");
+  const pending = sorted.filter((b) => b.status === "pending");
+  const others = sorted.filter((b) => b.status !== "pending");
 
   function approve(id: string) {
     updateBookingStatus(id, "approved");
@@ -93,7 +98,7 @@ function AdminPage() {
                         {getMachine(b.machineId)?.name ?? b.machineId}
                       </CardTitle>
                       <CardDescription className="mt-1">
-                        {b.userName} · {b.userRole} ·{" "}
+                        {b.userName} \u00b7 {b.userRole} \u00b7{" "}
                         {formatSlot(b.start, b.end)}
                       </CardDescription>
                     </div>
@@ -107,15 +112,32 @@ function AdminPage() {
                       Requested {formatRelative(b.createdAt)}
                     </span>
                     <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5"
-                        onClick={() => reject(b.id)}
-                      >
-                        <X className="size-3.5" />
-                        Reject
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="gap-1.5">
+                            <X className="size-3.5" />
+                            Reject
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Reject this request?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {b.userName}&apos;s request for{" "}
+                              {getMachine(b.machineId)?.name} will be rejected.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Keep pending</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => reject(b.id)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Reject
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                       <Button
                         size="sm"
                         className="gap-1.5"
@@ -135,47 +157,57 @@ function AdminPage() {
 
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          All bookings
+          All other bookings
         </h2>
         <Card>
           <CardContent className="pt-6">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b text-left text-muted-foreground">
-                    <th className="pb-3 font-medium">User</th>
-                    <th className="pb-3 font-medium">Machine</th>
-                    <th className="pb-3 font-medium hidden sm:table-cell">Slot</th>
-                    <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium hidden md:table-cell">Requested</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {others.map((b) => (
-                    <tr key={b.id} className="border-b last:border-0">
-                      <td className="py-3">
-                        <div className="font-medium">{b.userName}</div>
-                        <div className="text-xs capitalize text-muted-foreground">
-                          {b.userRole}
-                        </div>
-                      </td>
-                      <td className="py-3">
-                        {getMachine(b.machineId)?.name ?? b.machineId}
-                      </td>
-                      <td className="py-3 hidden sm:table-cell text-muted-foreground">
-                        {formatSlot(b.start, b.end)}
-                      </td>
-                      <td className="py-3">
-                        <BookingStatusBadge status={b.status} />
-                      </td>
-                      <td className="py-3 hidden md:table-cell text-muted-foreground">
-                        {formatRelative(b.createdAt)}
-                      </td>
+            {others.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No other bookings yet.
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="pb-3 font-medium">User</th>
+                      <th className="pb-3 font-medium">Machine</th>
+                      <th className="pb-3 font-medium hidden sm:table-cell">
+                        Slot
+                      </th>
+                      <th className="pb-3 font-medium">Status</th>
+                      <th className="pb-3 font-medium hidden md:table-cell">
+                        Requested
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {others.map((b) => (
+                      <tr key={b.id} className="border-b last:border-0">
+                        <td className="py-3">
+                          <div className="font-medium">{b.userName}</div>
+                          <div className="text-xs capitalize text-muted-foreground">
+                            {b.userRole}
+                          </div>
+                        </td>
+                        <td className="py-3">
+                          {getMachine(b.machineId)?.name ?? b.machineId}
+                        </td>
+                        <td className="hidden py-3 text-muted-foreground sm:table-cell">
+                          {formatSlot(b.start, b.end)}
+                        </td>
+                        <td className="py-3">
+                          <BookingStatusBadge status={b.status} />
+                        </td>
+                        <td className="hidden py-3 text-muted-foreground md:table-cell">
+                          {formatRelative(b.createdAt)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </CardContent>
         </Card>
       </section>
