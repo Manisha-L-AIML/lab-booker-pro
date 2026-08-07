@@ -9,7 +9,7 @@ import {
   Sun,
   User,
 } from "lucide-react";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,12 +20,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import {
-  getCurrentUser,
-  getSnapshot,
-  setRole,
-  subscribe,
-} from "@/lib/store";
+import { setRole } from "@/lib/store";
+import { useLabStore } from "@/hooks/use-lab-store";
 import type { UserRole } from "@/lib/types";
 
 const nav = [
@@ -36,23 +32,13 @@ const nav = [
   { to: "/admin", label: "Admin", icon: Shield, adminOnly: true },
 ] as const;
 
-function useStore() {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-}
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const store = useStore();
-  const user = getCurrentUser();
+  const { currentRole, user } = useLabStore();
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("lab-booker-theme");
-    const preferDark =
-      stored === "dark" ||
-      (!stored && window.matchMedia("(prefers-color-scheme: dark)").matches);
-    setDark(preferDark);
-    document.documentElement.classList.toggle("dark", preferDark);
+    setDark(document.documentElement.classList.contains("dark"));
   }, []);
 
   function toggleTheme() {
@@ -62,17 +48,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     localStorage.setItem("lab-booker-theme", next ? "dark" : "light");
   }
 
-  function switchRole(role: UserRole) {
-    setRole(role);
-  }
-
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Top bar */}
       <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
           <div className="flex items-center gap-6">
-            <Link to="/" className="flex items-center gap-2.5 font-semibold tracking-tight">
+            <Link
+              to="/"
+              className="flex items-center gap-2.5 font-semibold tracking-tight"
+            >
               <div className="flex size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
                 <Server className="size-4" />
               </div>
@@ -81,7 +65,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
             <nav className="hidden items-center gap-1 md:flex">
               {nav.map((item) => {
-                if ("adminOnly" in item && item.adminOnly && user.role !== "admin")
+                if (
+                  "adminOnly" in item &&
+                  item.adminOnly &&
+                  user.role !== "admin"
+                )
                   return null;
                 const active =
                   item.to === "/"
@@ -121,11 +109,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2">
                   <User className="size-3.5" />
-                  <span className="hidden sm:inline max-w-[120px] truncate">
+                  <span className="hidden max-w-[120px] truncate sm:inline">
                     {user.name}
                   </span>
                   <span className="rounded bg-secondary px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-secondary-foreground">
-                    {user.role}
+                    {user.role === "admin" ? "admin" : user.role}
                   </span>
                 </Button>
               </DropdownMenuTrigger>
@@ -143,10 +131,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {(["student", "faculty", "admin"] as UserRole[]).map((role) => (
                   <DropdownMenuItem
                     key={role}
-                    onClick={() => switchRole(role)}
+                    onClick={() => setRole(role)}
                     className={cn(
                       "capitalize",
-                      store.currentRole === role && "bg-accent",
+                      currentRole === role && "bg-accent",
                     )}
                   >
                     {role === "admin" ? "Lab In-Charge" : role}
@@ -157,7 +145,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Mobile nav */}
         <nav className="flex gap-1 overflow-x-auto border-t px-4 py-2 md:hidden">
           {nav.map((item) => {
             if ("adminOnly" in item && item.adminOnly && user.role !== "admin")

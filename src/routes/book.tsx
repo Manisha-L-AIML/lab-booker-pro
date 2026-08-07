@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { addDays, format, isBefore, startOfDay } from "date-fns";
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CalendarPlus, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -15,25 +15,17 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { MachineCard } from "@/components/machine-card";
 import { MACHINES } from "@/data/machines";
-import {
-  createBooking,
-  getDaySlots,
-  getSnapshot,
-  isSlotAvailable,
-  subscribe,
-} from "@/lib/store";
+import { createBooking, getDaySlots, isSlotAvailable } from "@/lib/store";
+import { useLabStore } from "@/hooks/use-lab-store";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/book")({
   component: BookPage,
 });
 
-function useStore() {
-  return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
-}
-
 function BookPage() {
-  useStore();
+  useLabStore(); // re-render when bookings change (availability)
+  const navigate = useNavigate();
   const onlineMachines = MACHINES.filter((m) => m.status === "online");
   const [machineId, setMachineId] = useState<string | null>(null);
   const [dayOffset, setDayOffset] = useState(0);
@@ -82,14 +74,13 @@ function BookPage() {
     toast.success(
       result.booking.status === "approved"
         ? "Booking confirmed"
-        : "Request submitted — awaiting approval",
+        : "Request submitted \u2014 awaiting approval",
     );
-    setPurpose("");
-    setSlotIdx(null);
+    void navigate({ to: "/bookings" });
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-24 md:pb-0">
       <div>
         <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
           Book a lab slot
@@ -99,10 +90,9 @@ function BookPage() {
         </p>
       </div>
 
-      {/* Step 1: Machine */}
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          1 · Select machine
+          1 \u00b7 Select machine
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {onlineMachines.map((m) => (
@@ -120,10 +110,9 @@ function BookPage() {
         </div>
       </section>
 
-      {/* Step 2: Day + Slot */}
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          2 · Choose day & time
+          2 \u00b7 Choose day & time
         </h2>
         <div className="flex flex-wrap gap-2">
           {[0, 1, 2, 3, 4, 5, 6].map((offset) => {
@@ -162,8 +151,7 @@ function BookPage() {
                 onClick={() => setSlotIdx(i)}
                 className={cn(
                   "rounded-lg border px-3 py-3 text-sm font-medium transition-all",
-                  !s.available &&
-                    "cursor-not-allowed opacity-40 line-through",
+                  !s.available && "cursor-not-allowed opacity-40 line-through",
                   s.available &&
                     slotIdx !== i &&
                     "hover:border-primary/50 hover:bg-muted",
@@ -178,16 +166,16 @@ function BookPage() {
         )}
       </section>
 
-      {/* Step 3: Purpose */}
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-          3 · Purpose
+          3 \u00b7 Purpose
         </h2>
         <Card className="max-w-xl">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">What will you run?</CardTitle>
             <CardDescription>
-              Help the lab in-charge prioritise and plan capacity.
+              Help the lab in-charge prioritise and plan capacity (min 8
+              characters).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -205,12 +193,15 @@ function BookPage() {
               size="lg"
               className="w-full gap-2 sm:w-auto"
               disabled={
-                !machineId || slotIdx === null || !purpose.trim() || submitting
+                !machineId ||
+                slotIdx === null ||
+                purpose.trim().length < 8 ||
+                submitting
               }
               onClick={handleSubmit}
             >
               {submitting ? (
-                "Submitting…"
+                "Submitting\u2026"
               ) : (
                 <>
                   <CalendarPlus className="size-4" />
@@ -222,15 +213,16 @@ function BookPage() {
         </Card>
       </section>
 
-      {/* Summary strip */}
       {machineId && slotIdx !== null && (
         <div className="fixed bottom-0 inset-x-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 md:static md:border-0 md:bg-transparent md:backdrop-blur-none">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
             <div className="flex items-center gap-2 text-sm">
-              <Check className="size-4 text-emerald-500" />
+              <Check className="size-4 shrink-0 text-emerald-500" />
               <span>
-                <strong>{MACHINES.find((m) => m.id === machineId)?.name}</strong>
-                {" · "}
+                <strong>
+                  {MACHINES.find((m) => m.id === machineId)?.name}
+                </strong>
+                {" \u00b7 "}
                 {availableSlots[slotIdx]?.label} on {format(day, "MMM d")}
               </span>
             </div>
