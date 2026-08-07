@@ -4,26 +4,17 @@
 
 Fair, transparent, zero-WhatsApp coordination for department GPU & compute resources.
 
-Students and faculty book lab machines and GPU time with live availability, conflict-free scheduling, and lab-in-charge approval workflows.
-
 ## Features
 
-- **Live availability** — see free machines and open slots instantly
-- **Conflict-free booking** — impossible to double-book a machine
+- **Live occupancy timelines** — see who’s on each machine, hour by hour
+- **Conflict-free booking** — impossible to double-book
+- **2h / 4h durations** — flexible slot lengths
 - **Role-based access** — Student, Faculty, Lab In-Charge
-- **Approval workflow** — lab-in-charge can approve, reject, or cancel
-- **Machine inventory** — GPU models, VRAM, CPU, status at a glance
-- **Dashboard analytics** — utilization, pending requests, your upcoming slots
-- **Dark mode** — full theme support
-- **Local persistence** — bookings survive refresh (demo mode)
-
-## Tech Stack
-
-- **TanStack Start** (React + TypeScript)
-- **TanStack Router** + **React Query**
-- **Tailwind CSS v4** + **shadcn/ui**
-- **date-fns** + **Zod** + **React Hook Form**
-- **Vite** + **Nitro**
+- **Approval workflow** — approve, reject, cancel with confirmations
+- **Fleet utilization** — dashboard + per-machine load bars
+- **Search & filters** — machines by status/GPU/tag; bookings by status
+- **Dark mode** — flash-free theme switching
+- **Demo persistence** — localStorage with reset
 
 ## Quick Start
 
@@ -36,36 +27,29 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Demo Roles
+## Demo roles
 
-Use the role switcher in the header:
+Use the profile menu (top right):
 
-| Role            | Capabilities                                      |
-| --------------- | ------------------------------------------------- |
-| Student         | Book slots, view own bookings, cancel own requests |
-| Faculty         | Same as student + higher priority context          |
-| Lab In-Charge   | Approve / reject / cancel any booking, full view   |
+| Role | Capabilities |
+| --- | --- |
+| Student | Book, view own, cancel own |
+| Faculty | Same as student |
+| Lab In-Charge | Approve / reject / cancel any + reset demo data |
 
-## Project Structure
+## Stack
 
-```
-src/
-├─ components/     # UI + domain components
-├─ data/           # Mock machines + seed data
-├─ lib/            # Utils, store, types
-├─ routes/         # File-based routes
-└─ styles.css      # Design tokens
-```
+TanStack Start · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui · date-fns · Zod
 
 ## Scripts
 
-| Command         | Description              |
-| --------------- | ------------------------ |
-| `npm run dev`   | Start development server |
-| `npm run build` | Production build         |
-| `npm run preview` | Preview production build |
-| `npm run lint`  | ESLint                   |
-| `npm run format`| Prettier                 |
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Dev server |
+| `npm run build` | Production build |
+| `npm run preview` | Preview build |
+| `npm run lint` | ESLint |
+| `npm run format` | Prettier |
 
 ## License
 

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { toast } from "sonner";
-import { Check, X } from "lucide-react";
+import { Check, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,7 +22,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { BookingStatusBadge } from "@/components/status-badge";
-import { getMachine, updateBookingStatus } from "@/lib/store";
+import { PageHeader } from "@/components/page-header";
+import { getMachine, resetDemoData, updateBookingStatus } from "@/lib/store";
 import { useLabStore } from "@/hooks/use-lab-store";
 import { formatSlot, formatRelative } from "@/lib/format";
 
@@ -66,16 +67,42 @@ function AdminPage() {
     toast.message("Booking rejected");
   }
 
+  function handleReset() {
+    resetDemoData();
+    toast.success("Demo data reset");
+  }
+
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
-          Lab administration
-        </h1>
-        <p className="mt-1 text-muted-foreground">
-          Review and act on booking requests
-        </p>
-      </div>
+      <PageHeader
+        title="Lab administration"
+        description="Review and act on booking requests"
+        actions={
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-1.5">
+                <RotateCcw className="size-3.5" />
+                Reset demo data
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reset all bookings?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This restores the original seed bookings and clears anything
+                  you created. Your role selection is kept.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReset}>
+                  Reset
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        }
+      />
 
       <section className="space-y-4">
         <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
@@ -98,7 +125,7 @@ function AdminPage() {
                         {getMachine(b.machineId)?.name ?? b.machineId}
                       </CardTitle>
                       <CardDescription className="mt-1">
-                        {b.userName} \u00b7 {b.userRole} \u00b7{" "}
+                        {b.userName} · {b.userRole} ·{" "}
                         {formatSlot(b.start, b.end)}
                       </CardDescription>
                     </div>
@@ -172,18 +199,21 @@ function AdminPage() {
                     <tr className="border-b text-left text-muted-foreground">
                       <th className="pb-3 font-medium">User</th>
                       <th className="pb-3 font-medium">Machine</th>
-                      <th className="pb-3 font-medium hidden sm:table-cell">
+                      <th className="hidden pb-3 font-medium sm:table-cell">
                         Slot
                       </th>
                       <th className="pb-3 font-medium">Status</th>
-                      <th className="pb-3 font-medium hidden md:table-cell">
+                      <th className="hidden pb-3 font-medium md:table-cell">
                         Requested
                       </th>
                     </tr>
                   </thead>
                   <tbody>
                     {others.map((b) => (
-                      <tr key={b.id} className="border-b last:border-0">
+                      <tr
+                        key={b.id}
+                        className="border-b last:border-0 transition-colors hover:bg-muted/20"
+                      >
                         <td className="py-3">
                           <div className="font-medium">{b.userName}</div>
                           <div className="text-xs capitalize text-muted-foreground">
